@@ -362,6 +362,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         }
     }
 
+    //根据日志序号，去定位到日志文件，如果命中具体的文件，则修改响应的读写指针、刷盘指针等，并将所在物理文件之后的所有文件删除
     @Override
     public long truncate(DLedgerEntry entry, long leaderTerm, String leaderId) {
         PreConditions.check(memberState.isFollower(), DLedgerResponseCode.NOT_FOLLOWER, null);
@@ -561,25 +562,29 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         return committedIndex;
     }
 
+    /*
+    term:主节点当前的投票轮次
+    newCommittedIndex:主节点发送日志复制请求时的已提交日志序号
+     */
     public void updateCommittedIndex(long term, long newCommittedIndex) {
-        if (newCommittedIndex == -1
-            || ledgerEndIndex == -1
-            || term < memberState.currTerm()
-            || newCommittedIndex == this.committedIndex) {
+        //如果待更新提交序号为-1或投票轮次小于从节点的投票轮次或主节点提交序列号等于从节点的已提交序号，则直接忽略本次提交动作
+        if (newCommittedIndex == -1 || ledgerEndIndex == -1 || term < memberState.currTerm() || newCommittedIndex == this.committedIndex) {
             return;
         }
-        if (newCommittedIndex < this.committedIndex
-            || newCommittedIndex < this.ledgerBeginIndex) {
+        //如果主节点的已提交日志序号小于从节点的已提交日志序号或待提交序号小于当前节点的最小有效日志序号，输出告警，并忽略本次提交动作
+        if (newCommittedIndex < this.committedIndex || newCommittedIndex < this.ledgerBeginIndex) {
             logger.warn("[MONITOR]Skip update committed index for new={} < old={} or new={} < beginIndex={}", newCommittedIndex, this.committedIndex, newCommittedIndex, this.ledgerBeginIndex);
             return;
         }
         long endIndex = ledgerEndIndex;
         if (newCommittedIndex > endIndex) {
-            //If the node fall behind too much, the committedIndex will be larger than enIndex.
+            //如果从节点落后主节点太多，则重置，提交索引为从节点当前最大有效日志序号
             newCommittedIndex = endIndex;
         }
+        //尝试根据待提交序号从从节点查找数据，如果数据不存在，抛出DISK_ERROR错误
         Pair<Long, Integer> posAndSize = getEntryPosAndSize(newCommittedIndex);
         PreConditions.check(posAndSize != null, DLedgerResponseCode.DISK_ERROR);
+        //更新committedIndex、committedPos两个指针，DledgerStore会定时将已提交指针刷入checkpoint文件，达到持久化committedIndex指针的目的
         this.committedIndex = newCommittedIndex;
         this.committedPos = posAndSize.getKey() + posAndSize.getValue();
     }
