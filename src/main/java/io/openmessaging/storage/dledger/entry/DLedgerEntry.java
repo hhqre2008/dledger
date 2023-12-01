@@ -21,15 +21,24 @@ public class DLedgerEntry {
     public final static int POS_OFFSET = 4 + 4 + 8 + 8;
     public final static int HEADER_SIZE = POS_OFFSET + 8 + 4 + 4 + 4;
     public final static int BODY_OFFSET = HEADER_SIZE + 4;
-
+    //魔数，4 字节
     private int magic;
+    //条目总长度，包含 Header(协议头) + 消息体，占4字节
     private int size;
+    //当前条目的index，占8字节
     private long index;
+    //当前条目所属的投票轮次，占8 字节
     private long term;
+    //该条目的物理偏移量，类似于commitlog文件的物理偏移量，占8字节
     private long pos; //used to validate data
+    //保留字段，当前版本未使用，占4字节
     private int channel; //reserved
+    //当前版本未使用，占4字节
     private int chainCrc; //like the block chain, this crc indicates any modification before this entry.
+    //body的CRC校验和，用来区分数据是否损坏，占4字节
+    //用来存储body的长度，占4个字节
     private int bodyCrc; //the crc of the body
+    //具体消息的内容
     private byte[] body;
 
     public int getSize() {

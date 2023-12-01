@@ -47,24 +47,43 @@ public class DLedgerMmapFileStore extends DLedgerStore {
 
     private static Logger logger = LoggerFactory.getLogger(DLedgerMmapFileStore.class);
     public List<AppendHook> appendHooks = new ArrayList<>();
+    //日志的起始索引
     private long ledgerBeginIndex = -1;
+    //下一条日志下标
     private long ledgerEndIndex = -1;
+    //已提交的日志索引
     private long committedIndex = -1;
     private long committedPos = -1;
+    //当前最大的投票轮次
     private long ledgerEndTerm;
+    //DLedger的配置信息
     private DLedgerConfig dLedgerConfig;
+    //状态机
     private MemberState memberState;
+    //日志文件(数据文件)的内存映射Queue
     private MmapFileList dataFileList;
+    /*
+    索引文件的内存映射文件集合
+    magic：4字节
+    pos: 8字节
+    size: 4字节
+    entryIndex: 8字节
+    entryTerm: 8字节
+     */
     private MmapFileList indexFileList;
     private ThreadLocal<ByteBuffer> localEntryBuffer;
     private ThreadLocal<ByteBuffer> localIndexBuffer;
+    //数据文件刷盘线程
     private FlushDataService flushDataService;
+    //清除过期日志文件线程
     private CleanSpaceService cleanSpaceService;
+    //磁盘是否已满
     private boolean isDiskFull = false;
-
+    //上一次检测点（时间戳）
     private long lastCheckPointTimeMs = System.currentTimeMillis();
-
+    //是否已经加载，主要用来避免重复加载(初始化)日志文件
     private AtomicBoolean hasLoaded = new AtomicBoolean(false);
+    //是否已恢复
     private AtomicBoolean hasRecovered = new AtomicBoolean(false);
 
     public DLedgerMmapFileStore(DLedgerConfig dLedgerConfig, MemberState memberState) {
@@ -362,7 +381,7 @@ public class DLedgerMmapFileStore extends DLedgerStore {
         }
     }
 
-    //根据日志序号，去定位到日志文件，如果命中具体的文件，则修改响应的读写指针、刷盘指针等，并将所在物理文件之后的所有文件删除
+    //根据日志序号，去定位到日志文件，如果命中具体的文件，则修改相应的读写指针、刷盘指针等，并将所在物理文件之后的所有文件删除
     @Override
     public long truncate(DLedgerEntry entry, long leaderTerm, String leaderId) {
         PreConditions.check(memberState.isFollower(), DLedgerResponseCode.NOT_FOLLOWER, null);
