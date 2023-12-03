@@ -86,6 +86,10 @@ public class DLedgerMmapFileStore extends DLedgerStore {
     //是否已恢复
     private AtomicBoolean hasRecovered = new AtomicBoolean(false);
 
+    /*
+    加载Dledger相关存储文件，并一一构建对应的MmapFile，其初始化三个重要的指针wrotePosition、flushedPosition、committedPosition三个指针
+    为文件的大小
+     */
     public DLedgerMmapFileStore(DLedgerConfig dLedgerConfig, MemberState memberState) {
         this.dLedgerConfig = dLedgerConfig;
         this.memberState = memberState;
